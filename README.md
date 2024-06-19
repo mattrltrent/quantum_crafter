@@ -32,8 +32,8 @@ Circuit examples:
 
 ### Collaboration
 
-- PRs welcome [here](https://github.com/mattrltrent/quantum_crafter/issues).
-- Issues [here](https://github.com/mattrltrent/quantum_crafter/pulls).
+- PRs welcome [here](https://github.com/mattrltrent/quantum_crafter/pulls).
+- Issues [here](https://github.com/mattrltrent/quantum_crafter/issues).
 
 ### Disclaimer
 
