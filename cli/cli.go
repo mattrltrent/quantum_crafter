@@ -29,6 +29,7 @@ var (
 
 // help menu
 func PrintHelp() {
+	whitePrintln("Usage:")
 	whitePrintln("----------------")
 	whitePrintln("  help       - shows this help message")
 	whitePrintln("  version    - shows tool version")
