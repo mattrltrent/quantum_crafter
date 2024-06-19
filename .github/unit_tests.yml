@@ -1,0 +1,27 @@
+name: unit tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # env:
+    #   PORT: ${{ secrets.PORT }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: set up go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '^1.2'
+      
+    #   - name: create .env file
+    #     run: |
+    #       echo "PORT=${{ secrets.PORT }}" > .env
+
+      - name: unit tests
+        run: go test ./... -v -timeout 300s
