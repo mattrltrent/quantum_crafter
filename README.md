@@ -14,6 +14,8 @@ brew install mattrltrent/tap/qc
 
 ### Quick start
 
+Used as `qc` + `<commands_here>`:
+
 ```bash
 Usage:
 ----------------
