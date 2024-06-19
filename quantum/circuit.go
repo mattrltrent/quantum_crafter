@@ -3,6 +3,7 @@ package quantum
 import (
 	"errors"
 	"fmt"
+	"math/cmplx"
 	"strconv"
 	"strings"
 
@@ -264,9 +265,19 @@ func (c *Circuit) ExecuteToBarrier(atBarrier int) (Result, error) {
 
 func Probabilities(stateVector map[string]complex128) map[string]float64 {
 	probabilities := make(map[string]float64)
+	totalProbability := 0.0
+
 	for key, value := range stateVector {
-		probabilities[key] = real(value * value)
+		prob := cmplx.Abs(value) * cmplx.Abs(value)
+		probabilities[key] = prob
+		totalProbability += prob
 	}
+
+	// norm probs
+	for key := range probabilities {
+		probabilities[key] /= totalProbability
+	}
+
 	return probabilities
 }
 

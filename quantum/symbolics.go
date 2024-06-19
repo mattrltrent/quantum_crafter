@@ -8,11 +8,23 @@ import (
 
 // ways to convert "constant" similar-ish values to their symbolic form
 var constants = map[string]complex128{
-	"0":          0,
-	"1":          1,
-	"i":          1i,
-	"1/sqrt(2)":  complex(1/math.Sqrt(2), 0),
-	"-1/sqrt(2)": complex(-1/math.Sqrt(2), 0),
+	"0":                    0,
+	"1":                    1,
+	"i":                    1i,
+	"1/sqrt(2)":            complex(1/math.Sqrt(2), 0),
+	"-1/sqrt(2)":           complex(-1/math.Sqrt(2), 0),
+	"1/sqrt(2)+i/2":        complex(1/math.Sqrt(2), 0.5),
+	"1/sqrt(2)-i/2":        complex(1/math.Sqrt(2), -0.5),
+	"-1/sqrt(2)+i/2":       complex(-1/math.Sqrt(2), 0.5),
+	"-1/sqrt(2)-i/2":       complex(-1/math.Sqrt(2), -0.5),
+	"1/2":                  complex(0.5, 0),
+	"-1/2":                 complex(-0.5, 0),
+	"i/2":                  complex(0, 0.5),
+	"-i/2":                 complex(0, -0.5),
+	"1/sqrt(2)+i/sqrt(2)":  complex(1/math.Sqrt(2), 1/math.Sqrt(2)),
+	"1/sqrt(2)-i/sqrt(2)":  complex(1/math.Sqrt(2), -1/math.Sqrt(2)),
+	"-1/sqrt(2)+i/sqrt(2)": complex(-1/math.Sqrt(2), 1/math.Sqrt(2)),
+	"-1/sqrt(2)-i/sqrt(2)": complex(-1/math.Sqrt(2), -1/math.Sqrt(2)),
 }
 
 // map of complex128s to map of strings

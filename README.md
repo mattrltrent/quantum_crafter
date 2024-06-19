@@ -1,12 +1,10 @@
-⚠️ NOT READY FOR USE YET ⚠️
-
 # Quantum Crafter 🚀
 
 ![unit tests](https://github.com/mattrltrent/quantum_crafter/actions/workflows/unit_tests.yml/badge.svg)
 
 ![demo](demo.gif)
 
-### Download
+### Download on Homebrew
 
 ```bash
 brew install mattrltrent/tap/qc
@@ -36,3 +34,7 @@ Circuit examples:
 
 - PRs welcome [here](https://github.com/mattrltrent/quantum_crafter/issues).
 - Issues [here](https://github.com/mattrltrent/quantum_crafter/pulls).
+
+### Disclaimer
+
+This project is a work in progress and could be buggy.
