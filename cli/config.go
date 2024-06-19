@@ -1,6 +1,6 @@
 package cli
 
 const (
-	Version = "v1.0.0"
+	Version = "v0.0.1"
 	RepoURL = "https://github.com/mattrltrent/quantum_crafter"
 )

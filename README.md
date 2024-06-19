@@ -1,15 +1,15 @@
+⚠️ NOT READY FOR USE YET ⚠️
+
 # Quantum Crafter 🚀
 
-![unit tests](https://github.com/mattrltrent/quantum/actions/workflows/unit_tests.yml/badge.svg)
+![unit tests](https://github.com/mattrltrent/quantum_crafter/actions/workflows/unit_tests.yml/badge.svg)
 
-todo: gif demo
-
----
+![demo](demo.gif)
 
 ### Download
 
 ```bash
-brew tap mattrltrent/tap ; brew install quantum_crafter
+brew install mattrltrent/tap/qc
 ```
 
 ### Quick start
