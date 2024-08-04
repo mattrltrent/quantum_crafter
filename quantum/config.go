@@ -18,6 +18,7 @@ var (
 	//! errors
 
 	ErrUnknownGate         = errors.New("unknown gate")
+	ErrDuplicateWire	   = errors.New("duplicate wire")
 	ErrInvalidWireFormat   = errors.New("invalid wire format")
 	ErrInvalidArgument     = errors.New("invalid argument")
 	ErrGateMatrixNotSquare = errors.New("gate matrix is not square")

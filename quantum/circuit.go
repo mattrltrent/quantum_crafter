@@ -46,6 +46,7 @@ func nameToCircuitGate(name string) (CircuitGate, error) {
 	wires := []int{}
 	if wireStr != "" {
 		wireParts := strings.Split(wireStr, ",")
+		seen := make(map[int]bool)
 		for _, ws := range wireParts {
 			wire, err := strconv.Atoi(ws)
 			if err != nil || wire < 0 {
@@ -54,6 +55,10 @@ func nameToCircuitGate(name string) (CircuitGate, error) {
 			if wire > maxWires {
 				return CircuitGate{}, ErrTooManyWires
 			}
+			if seen[wire] {
+				return CircuitGate{}, ErrDuplicateWire
+			}
+			seen[wire] = true
 			wires = append(wires, wire)
 		}
 	}
