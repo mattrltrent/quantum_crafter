@@ -8,8 +8,8 @@ import (
 
 var (
 	//! constants
-	// matches gate and optional wires with delimiter ","
-	gateWireRegex = regexp.MustCompile(`^([a-z]+)([0-9,]*)$`)
+	// matches gate and optional wires with delimiter "," and allows some gates to have n optional arguments in () right after wire delcariations
+	gateWireRegex = regexp.MustCompile(`^([a-z]+)(\d+(?:,\d+)*)?(?:\((.*)\))?$`)
 	// max wires
 	maxWires = 9
 	// max gates
@@ -19,6 +19,7 @@ var (
 
 	ErrUnknownGate         = errors.New("unknown gate")
 	ErrInvalidWireFormat   = errors.New("invalid wire format")
+	ErrInvalidArgument     = errors.New("invalid argument")
 	ErrGateMatrixNotSquare = errors.New("gate matrix is not square")
 	ErrInvalidWireCount    = errors.New("invalid wire count")
 	ErrInvalidBarrier      = errors.New("invalid barrier")

@@ -3,10 +3,14 @@ package quantum
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/cmplx"
+	"sort"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
+	"github.com/Knetic/govaluate"
 	"github.com/fatih/color"
 )
 
@@ -27,12 +31,8 @@ func NewCircuit(gates []string) (Circuit, error) {
 
 	return circuit, nil
 }
-
 func nameToCircuitGate(name string) (CircuitGate, error) {
-
-	// make lowercase
 	name = strings.ToLower(name)
-
 	match := gateWireRegex.FindStringSubmatch(name)
 	if match == nil {
 		return CircuitGate{}, ErrUnknownGate
@@ -40,6 +40,7 @@ func nameToCircuitGate(name string) (CircuitGate, error) {
 
 	gateName := match[1]
 	wireStr := match[2]
+	argStr := match[3]
 
 	var gate GateInterface
 	wires := []int{}
@@ -57,6 +58,27 @@ func nameToCircuitGate(name string) (CircuitGate, error) {
 		}
 	}
 
+	// parse arg str if exists
+	var theta float64
+	if argStr != "" {
+		expression, err := govaluate.NewEvaluableExpression(argStr)
+		if err != nil {
+			return CircuitGate{}, ErrInvalidArgument
+		}
+		parameters := make(map[string]interface{})
+		parameters["pi"] = math.Pi
+		result, err := expression.Evaluate(parameters)
+		if err != nil {
+			return CircuitGate{}, ErrInvalidArgument
+		}
+		argValue, ok := result.(float64)
+		if !ok {
+			return CircuitGate{}, ErrInvalidArgument
+		}
+		theta = argValue
+	}
+
+	// definitely better ways to do this... but...
 	switch gateName {
 	case "i":
 		gate = Identity(2)
@@ -82,6 +104,22 @@ func nameToCircuitGate(name string) (CircuitGate, error) {
 		gate = Phase()
 	case "toff":
 		gate = Toffoli()
+	case "ccx":
+		gate = CCX()
+	case "ccz":
+		gate = CCZ()
+	case "rx":
+		gate = Rx(theta)
+	case "ry":
+		gate = Ry(theta)
+	case "rz":
+		gate = Rz(theta)
+	case "crx":
+		gate = CRx(theta)
+	case "cry":
+		gate = CRy(theta)
+	case "crz":
+		gate = CRz(theta)
 	default:
 		return CircuitGate{}, ErrUnknownGate
 	}
@@ -93,14 +131,8 @@ func nameToCircuitGate(name string) (CircuitGate, error) {
 	return CircuitGate{Gate: gate, Wires: wires}, nil
 }
 
-func (c *Circuit) Draw() error {
-	// attempt executing first to ensure the circuit is valid
-	_, err := c.Execute()
-	if err != nil {
-		return err
-	}
+func (c *Circuit) Draw(atBarrier int) error {
 
-	// color directives
 	qubitColor := color.New(color.FgCyan).SprintfFunc()
 	wireColor := color.New(color.FgWhite).SprintfFunc()
 	barrierColor := color.New(color.BgRed).SprintfFunc()
@@ -123,14 +155,31 @@ func (c *Circuit) Draw() error {
 		}
 	}
 
+	sb.WriteString(color.New(color.FgRed, color.Bold).SprintfFunc()("Barrier "))
+	sb.WriteString(color.New(color.FgGreen, color.Bold).SprintfFunc()(fmt.Sprintf("%d", atBarrier)))
+	sb.WriteString(color.New(color.FgRed, color.Bold).SprintfFunc()(" of "))
+	sb.WriteString(color.New(color.FgGreen, color.Bold).SprintfFunc()(fmt.Sprintf("%d", len(c.Gates))))
+	sb.WriteString(color.New(color.FgRed, color.Bold).SprintfFunc()(" · "))
+	sb.WriteString(color.New(color.FgBlue, color.Bold).SprintfFunc()("q"))
+	sb.WriteString(color.New(color.FgRed, color.Bold).SprintfFunc()(" to quit · "))
+	sb.WriteString(color.New(color.FgGreen, color.Bold).SprintfFunc()("j"))
+	sb.WriteString(color.New(color.FgRed, color.Bold).SprintfFunc()(" and "))
+	sb.WriteString(color.New(color.FgGreen, color.Bold).SprintfFunc()("k"))
+	sb.WriteString(color.New(color.FgRed, color.Bold).SprintfFunc()(" to traverse circuit\r\n"))
+	sb.WriteString("\n")
+
 	qubitLines := make([]string, numQubits)
 	for i := 0; i < numQubits; i++ {
-		qubitLines[i] = qubitColor("q[%d]|0>", i)
+		qubitLines[i] = qubitColor("|0⟩")
 	}
 
 	barrierPositions := []int{}
 
-	for _, gate := range c.Gates {
+	for i, gate := range c.Gates {
+		if i >= atBarrier {
+			break
+		}
+
 		gateStr := gate.Gate.Name()
 		segmentSize := len(gateStr) + 4
 		padding := segmentSize - len(gateStr)
@@ -155,18 +204,33 @@ func (c *Circuit) Draw() error {
 				maxWire = control
 			}
 
-			controlStr := gateColor(strings.Repeat("•", len(gateStr)))
-			controlStrPadded := fmt.Sprintf("%s%s%s", wireColor(strings.Repeat("-", leftPad)), controlStr, wireColor(strings.Repeat("-", rightPad)))
+			if gateStr == SWAP().Name() {
+				controlStrPadded := fmt.Sprintf("%s%s%s", wireColor(strings.Repeat("-", leftPad)), gateColor(gateStr), wireColor(strings.Repeat("-", rightPad)))
+				targetStrPadded := fmt.Sprintf("%s%s%s", wireColor(strings.Repeat("-", leftPad)), gateColor(gateStr), wireColor(strings.Repeat("-", rightPad)))
 
-			for i := 0; i < numQubits; i++ {
-				if i == control {
-					qubitLines[i] += controlStrPadded
-				} else if i == target {
-					qubitLines[i] += fmt.Sprintf("%s%s%s", wireColor(strings.Repeat("-", leftPad)), gateColor(strings.ToUpper(gateStr)), wireColor(strings.Repeat("-", rightPad)))
-				} else if i > minWire && i < maxWire {
-					qubitLines[i] += wireColor(strings.Repeat("-", segmentSize))
-				} else {
-					qubitLines[i] += wireColor(strings.Repeat("-", segmentSize))
+				for i := 0; i < numQubits; i++ {
+					if i == control {
+						qubitLines[i] += controlStrPadded
+					} else if i == target {
+						qubitLines[i] += targetStrPadded
+					} else {
+						qubitLines[i] += wireColor(strings.Repeat("-", segmentSize))
+					}
+				}
+			} else {
+				controlStr := gateColor(strings.Repeat("•", len(gateStr)))
+				controlStrPadded := fmt.Sprintf("%s%s%s", wireColor(strings.Repeat("-", leftPad)), controlStr, wireColor(strings.Repeat("-", rightPad)))
+
+				for i := 0; i < numQubits; i++ {
+					if i == control {
+						qubitLines[i] += controlStrPadded
+					} else if i == target {
+						qubitLines[i] += fmt.Sprintf("%s%s%s", wireColor(strings.Repeat("-", leftPad)), gateColor(strings.ToUpper(gateStr)), wireColor(strings.Repeat("-", rightPad)))
+					} else if i > minWire && i < maxWire {
+						qubitLines[i] += wireColor(strings.Repeat("-", segmentSize))
+					} else {
+						qubitLines[i] += wireColor(strings.Repeat("-", segmentSize))
+					}
 				}
 			}
 		} else if len(gate.Wires) == 3 {
@@ -194,32 +258,32 @@ func (c *Circuit) Draw() error {
 	}
 
 	for i := range qubitLines {
+		sb.WriteString("\r")
 		sb.WriteString(qubitLines[i])
 		if i < len(qubitLines)-1 {
 			sb.WriteString("\n")
 		}
 	}
 
-	// add column (barrier) #s
+	sb.WriteString("\r")
 	sb.WriteString("\n")
-	sb.WriteString(strings.Repeat(" ", 7))
+	sb.WriteString(strings.Repeat(" ", 3))
 	for i := range barrierPositions {
 		offset := 0
-		// for each length of string(i) > 1, add 1 to offset
 		if i > 1 {
 			offset = len(strconv.Itoa(i)) - 1
 		}
 		sb.WriteString(fmt.Sprintf("%s%d", strings.Repeat(" ", len(string(c.Gates[i].Gate.Name()))+4-offset), i+1))
 	}
 
+	sb.WriteString("\n\n")
+	sb.WriteString(c.buildTable(atBarrier))
+	sb.WriteString("\r")
 	fmt.Println(sb.String())
 	return nil
 }
 
-func (c *Circuit) Execute() (Result, error) {
-	return c.ExecuteToBarrier(len(c.Gates))
-}
-
+// executes the circuit up to a specific barrier n and returns the result
 func (c *Circuit) ExecuteToBarrier(atBarrier int) (Result, error) {
 	if atBarrier < 1 || atBarrier > len(c.Gates) {
 		return Result{}, ErrInvalidBarrier
@@ -295,10 +359,6 @@ func intToBitString(value, length int) []string {
 
 func applyGates(stateVector Matrix, gates []CircuitGate, numQubits int) (Matrix, error) {
 	for _, gate := range gates {
-		if gate.Gate.Data().Rows != gate.Gate.Data().Cols {
-			return Matrix{}, ErrGateMatrixNotSquare
-		}
-
 		fullGate := createFullGateMatrix(gate, numQubits)
 		if !fullGate.CanMultiply(&stateVector) {
 			return Matrix{}, errors.New("cannot multiply matrices")
@@ -312,15 +372,10 @@ func createFullGateMatrix(gate CircuitGate, numQubits int) Matrix {
 	fullGate := Identity(1 << numQubits).Data()
 
 	if len(gate.Wires) == 1 {
-		for i := 0; i < numQubits; i++ {
-			if i == gate.Wires[0] {
-				fullGate = applyGateToQubit(gate.Gate.Data(), i, numQubits)
-			}
-		}
+		fullGate = applyGateToQubit(gate.Gate.Data(), gate.Wires[0], numQubits)
 	} else if len(gate.Wires) == 2 {
 		fullGate = applyTwoQubitGate(gate.Gate.Data(), gate.Wires, numQubits)
 	} else if len(gate.Wires) == 3 {
-		// triple gates
 		fullGate = applyThreeQubitGate(gate.Gate.Data(), gate.Wires, numQubits)
 	}
 
@@ -396,4 +451,109 @@ func applyThreeQubitGate(gate Matrix, wires []int, numQubits int) Matrix {
 
 	temp := tensorGateMatrix(&left, &middle)
 	return tensorGateMatrix(&temp, &right)
+}
+func (c *Circuit) buildTable(atBarrier int) string {
+	result, err := c.ExecuteToBarrier(atBarrier)
+	if err != nil {
+		return fmt.Sprintf("Error executing circuit: %v\n", err)
+	}
+
+	// collecting non-zero probs
+	var probabilities []struct {
+		Key   string
+		Value float64
+		State string
+	}
+	for key, value := range result.Probabilities {
+		if value > 0 {
+			probabilities = append(probabilities, struct {
+				Key   string
+				Value float64
+				State string
+			}{
+				Key:   key,
+				Value: value,
+				State: result.StateVectorSymbolic[key],
+			})
+		}
+	}
+
+	// sorting by binary, aka: 000 -> 001 -> 010 -> 011 -> 100 -> 101 -> 110 -> 111, etc.
+	sort.Slice(probabilities, func(i, j int) bool {
+		keyI, _ := strconv.ParseInt(probabilities[i].Key, 2, 64)
+		keyJ, _ := strconv.ParseInt(probabilities[j].Key, 2, 64)
+		return keyI < keyJ
+	})
+
+	// reference phrase to base relative phase off of
+	var referencePhase float64
+	if len(probabilities) > 0 {
+		referencePhase = cmplx.Phase(result.StateVector[probabilities[0].Key])
+	}
+
+	var sb strings.Builder
+	w := tabwriter.NewWriter(&sb, 0, 0, 1, ' ', 0)
+
+	headerFmt := color.New(color.FgRed, color.Bold).SprintfFunc()
+	columnFmt := color.New(color.FgWhite, color.Bold).SprintfFunc()
+
+	headers := []string{
+		"State ",
+		"Amplitude ",
+		"Probability ",
+		"Relative phase ",
+	}
+
+	rows := [][]string{
+		headers,
+	}
+
+	for _, p := range probabilities {
+		truncatedValue := fmt.Sprintf("%.2f%s", p.Value*100, "%%")
+		phaseValue := fmt.Sprintf("%.9f", cmplx.Phase(result.StateVector[p.Key])-referencePhase)
+		row := []string{
+			p.Key,
+			p.State,
+			truncatedValue,
+			phaseValue,
+		}
+		rows = append(rows, row)
+	}
+
+	colWidths := make([]int, len(headers))
+	for i, header := range headers {
+		colWidths[i] = len(header)
+	}
+	for _, row := range rows {
+		for i, col := range row {
+			if len(col) > colWidths[i] {
+				colWidths[i] = len(col)
+			}
+		}
+	}
+
+	// padding
+	for i := range colWidths {
+		if i == 0 {
+			continue
+		}
+		colWidths[i] += 4
+	}
+
+	fmt.Fprintf(w, "\r")
+	for i, header := range headers {
+		fmt.Fprintf(w, "%*s\t", colWidths[i], headerFmt(header))
+	}
+	fmt.Fprintln(w)
+
+	for _, row := range rows[1:] {
+		fmt.Fprintf(w, "\r")
+		for i, col := range row {
+			fmt.Fprintf(w, "%*s\t", colWidths[i], columnFmt(col))
+		}
+		fmt.Fprintln(w)
+	}
+
+	w.Flush()
+	return sb.String()
 }

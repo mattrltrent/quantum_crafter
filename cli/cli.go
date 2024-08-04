@@ -1,18 +1,17 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
-	"sort"
-	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/fatih/color"
 	"github.com/mattn/go-colorable"
 	"github.com/mattrltrent/quantum_crafter/quantum"
-	"github.com/rodaine/table"
+	"golang.org/x/term"
 )
 
 func init() {
@@ -21,32 +20,45 @@ func init() {
 
 // color vars
 var (
-	white        = color.New(color.FgWhite).SprintFunc()
-	whiteFprintf = color.New(color.FgWhite).FprintfFunc()
-	whitePrintf  = color.New(color.FgWhite).PrintfFunc()
-	whitePrintln = color.New(color.FgWhite).PrintlnFunc()
+	white        = color.New(color.FgWhite, color.Bold).SprintFunc()
+	whiteFprintf = color.New(color.FgWhite, color.Bold).FprintfFunc()
+	whitePrintf  = color.New(color.FgWhite, color.Bold).PrintfFunc()
+	whitePrintln = color.New(color.FgWhite, color.Bold).PrintlnFunc()
+	redPrintln   = color.New(color.FgRed, color.Bold).PrintlnFunc()
 )
 
 // help menu
 func PrintHelp() {
-	whitePrintln("Usage:")
-	whitePrintln("----------------")
-	whitePrintln("  help       - shows this help message")
-	whitePrintln("  version    - shows tool version")
-	whitePrintln("  repo       - opens the GitHub repository")
-	whitePrintln("  gates      - lists available gates")
-	whitePrintln("  <circuit>  - executes the quantum circuit with the provided gates")
-	whitePrintln("----------------")
-	whitePrintln("Circuit examples:")
-	whitePrintln("----------------")
-	whitePrintln("  z2 x1 cnot0,1 cz2,3 toff1,2,3      - random gates")
-	whitePrintln("  h0 cnot0,1                         - creates bell pair")
-	whitePrintln("----------------")
+	redPrintln("Usage:")
+	whitePrintln("  help                  - shows this help message")
+	whitePrintln("  version               - shows tool version")
+	whitePrintln("  repo                  - opens the github repository")
+	whitePrintln("  gates                 - lists available gates")
+	whitePrintln("  run \"<gates here>\"    - executes the quantum circuit with the provided gates")
+	redPrintln("Circuit examples:")
+	whitePrintln("  run \"z2 x1 cnot0,1 cz2,3 rz0(-pi/2*(-3^2)) toff1,2,3\"      - random gates")
+	whitePrintln("  run \"h0 cnot0,1\"                                           - creates bell pair")
+	redPrintln("Notes:")
+	whitePrintln("  indexing starts at 0")
+	whitePrintln("  arithmetic operations must be explicit (yes: 2*pi, no: 2pi)")
+	redPrintln("How to apply gates by type:")
+	whitePrintln("  h0          - hadamard gate on wire 0")
+	whitePrintln("  cnot0,1     - controlled not gate with control wire 0 and target wire 1")
+	whitePrintln("  rx0(pi/2)   - rotate x gate on wire 0 by pi/2 radians")
+	whitePrintln("  crz0,1(pi)  - controlled z rotation with control on wire 0 and target 1 for rotation pi radians")
+	whitePrintln("  toff0,1,2   - toffoli gate with control wires 0, 1 and target wire 2")
+	redPrintln("Arithmetic operations for rotational gates:")
+	whitePrintln("  pi          - defined constant")
+	whitePrintln("  ()          - order of operators")
+	whitePrintln("  +           - addition")
+	whitePrintln("  -           - subtraction")
+	whitePrintln("  *           - multiplication")
+	whitePrintln("  /           - floating point division")
+	whitePrintln("  ^           - exponentiation")
 }
 
 // print available gates
 func PrintGates() {
-	whitePrintln("Available gates:")
 	gates := []quantum.GateInterface{
 		quantum.Identity(2),
 		quantum.Hadamard(),
@@ -60,10 +72,20 @@ func PrintGates() {
 		quantum.T(),
 		quantum.S(),
 		quantum.Phase(),
+		quantum.Rx(1),
+		quantum.Ry(1),
+		quantum.Rz(1),
+		quantum.CRx(1),
+		quantum.CRy(1),
+		quantum.CRz(1),
+		quantum.CCX(),
+		quantum.CCZ(),
 	}
 
+	redPrintln("Gates & example usage:")
 	for _, gate := range gates {
-		whitePrintf("  - %s\n", gate.Name())
+		// show gate.Name() and gate.Example()
+		whitePrintf("%s: %s\n", gate.FullName(), gate.Example())
 	}
 }
 
@@ -77,81 +99,93 @@ func OpenRepo() {
 	exec.Command("open", RepoURL).Run()
 }
 
-// execute the circuit
+// execute interactively
 func ExecuteCircuit(gates []string) {
+	// decode args
+	for i, gate := range gates {
+		decoded, err := url.QueryUnescape(gate)
+		if err != nil {
+			whitePrintf("Error decoding argument: %v\n", err)
+			return
+		}
+		gates[i] = decoded
+	}
+
 	circuit, err := quantum.NewCircuit(gates)
 	if err != nil {
 		whitePrintf("Error creating circuit: %v\n", err)
 		return
 	}
 
-	err = circuit.Draw()
+	RunInteractiveCLI(&circuit)
+}
+
+func getSingleKey() (rune, error) {
+	var buf [1]byte
+	if _, err := syscall.Read(syscall.Stdin, buf[:]); err != nil {
+		return 0, err
+	}
+	return rune(buf[0]), nil
+}
+
+func enableRawMode() (*term.State, error) {
+	oldState, err := term.MakeRaw(int(syscall.Stdin))
 	if err != nil {
-		whitePrintf("Error drawing circuit: %v\n", err)
+		return nil, err
+	}
+	return oldState, nil
+}
+
+func disableRawMode(state *term.State) {
+	term.Restore(int(syscall.Stdin), state)
+}
+
+func RunInteractiveCLI(circuit *quantum.Circuit) {
+	state, err := enableRawMode()
+	if err != nil {
+		fmt.Println("Failed to enable raw mode:", err)
 		return
 	}
+	defer disableRawMode(state)
 
-	// input # to get state at what barrier
-	whitePrintf("\nExecute to barrier # (default all): ")
-	reader := bufio.NewReader(os.Stdin)
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		whitePrintln("Error reading input")
-		return
-	}
-	whitePrintln()
+	atBarrier := len(circuit.Gates)
+	clearScreen()
+	circuit.Draw(atBarrier)
 
-	input = strings.TrimSpace(input)
-	barrier, err := strconv.Atoi(input)
-	if err != nil {
-		barrier = len(circuit.Gates)
-	}
+	for {
+		key, err := getSingleKey()
+		if err != nil {
+			fmt.Println("Failed to read key:", err)
+			break
+		}
 
-	result, err := circuit.ExecuteToBarrier(barrier)
-	if err != nil {
-		whitePrintf("Error executing circuit: %v\n", err)
-		return
-	}
-
-	// create slice to store the probs
-	probabilities := make([]struct {
-		Key   string
-		Value float64
-		State string
-	}, 0)
-
-	for key, value := range result.Probabilities {
-		if value > 0 {
-			probabilities = append(probabilities, struct {
-				Key   string
-				Value float64
-				State string
-			}{
-				Key:   key,
-				Value: value,
-				State: result.StateVectorSymbolic[key],
-			})
+		switch key {
+		case 'q':
+			return
+		// also quit on ctrl+c
+		case 3:
+			return
+		case 'j':
+			if atBarrier > 1 {
+				atBarrier--
+				clearScreen()
+				circuit.Draw(atBarrier)
+			}
+		case 'k':
+			if atBarrier < len(circuit.Gates) {
+				atBarrier++
+				clearScreen()
+				circuit.Draw(atBarrier)
+			}
 		}
 	}
+}
 
-	// sort/order by prob
-	sort.Slice(probabilities, func(i, j int) bool {
-		return probabilities[i].Value > probabilities[j].Value
-	})
-
-	headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
-	columnFmt := color.New(color.FgYellow).SprintfFunc()
-
-	tbl := table.New("Non-zero basis vectors", "Amplitudes", "Probabilities")
-	tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt).WithPadding(5)
-
-	for _, p := range probabilities {
-		// trunc to 5 decimals
-		truncatedValue := fmt.Sprintf("%.2f%%", float64(int(p.Value*1e5))/1e5*100)
-		tbl.AddRow(p.Key, p.State, truncatedValue)
-	}
-
-	tbl.Print()
+// clear terminal screen
+func clearScreen() {
+	cmd := exec.Command("clear")
+	cmd.Stdout = os.Stdout
+	cmd.Run()
 }
 
 func Run() {
@@ -169,8 +203,14 @@ func Run() {
 		PrintHelp()
 	case "version", "-v", "--version":
 		PrintVersion()
-	default:
-		gates := os.Args[1:]
+	case "run":
+		if len(os.Args) < 3 {
+			PrintHelp()
+			return
+		}
+		gates := strings.Split(os.Args[2], " ")
 		ExecuteCircuit(gates)
+	default:
+		PrintHelp()
 	}
 }

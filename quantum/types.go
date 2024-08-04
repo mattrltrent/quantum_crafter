@@ -14,6 +14,8 @@ type Gate struct {
 type GateInterface interface {
 	WiresNeeded() int
 	Name() string
+	FullName() string
+	Example() string
 	Data() Matrix
 }
 

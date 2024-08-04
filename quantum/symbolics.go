@@ -25,6 +25,7 @@ var constants = map[string]complex128{
 	"1/sqrt(2)-i/sqrt(2)":  complex(1/math.Sqrt(2), -1/math.Sqrt(2)),
 	"-1/sqrt(2)+i/sqrt(2)": complex(-1/math.Sqrt(2), 1/math.Sqrt(2)),
 	"-1/sqrt(2)-i/sqrt(2)": complex(-1/math.Sqrt(2), -1/math.Sqrt(2)),
+	"pi":                   math.Pi,
 }
 
 // map of complex128s to map of strings

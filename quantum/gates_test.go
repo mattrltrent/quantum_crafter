@@ -2,6 +2,7 @@ package quantum
 
 import "testing"
 
+// dummy test to basically see the tests suite working
 func TestGatesIdentity(t *testing.T) {
 	identity := Identity(2)
 	if identity.WiresNeeded() != 1 {
