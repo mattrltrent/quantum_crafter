@@ -1,10 +1,10 @@
 # Quantum Crafter 🚀
 
-Create & quickly traverse quantum circuits.
-
 ![unit tests](https://github.com/mattrltrent/quantum_crafter/actions/workflows/unit_tests.yml/badge.svg)
 
-![demo](assets/demo.gif)
+<div align="center">
+  <img src="assets/demo.gif" alt="demo" width="100%">
+</div>
 
 ### Download on Homebrew
 
