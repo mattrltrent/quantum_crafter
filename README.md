@@ -9,6 +9,8 @@
 ### Download on Homebrew
 
 ```bash
+# run this command to install or update to
+# the newest version
 brew install mattrltrent/tap/qc
 ```
 
@@ -17,6 +19,12 @@ brew install mattrltrent/tap/qc
 Used as `qc` + `<commands_here>`:
 
 ![demo](assets/help.png)
+
+### Example circuit
+
+```bash
+qc run "z2 x1 x2 rz0(-pi/2*(-3^2)) toff1,2,3 cnot0,1 cz1,2 rz0(pi/2*(-3^2)) h2 crx0,1(pi) swap0,3 cz1,2"
+```
 
 ### Collaboration
 
