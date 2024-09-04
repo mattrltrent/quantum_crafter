@@ -8,9 +8,9 @@
 
 ### Download on Homebrew
 
+Run this command to install or update to the newest version:
+
 ```bash
-# run this command to install or update to
-# the newest version
 brew install mattrltrent/tap/qc
 ```
 
