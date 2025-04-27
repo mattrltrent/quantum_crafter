@@ -33,4 +33,4 @@ qc run "z2 x1 x2 rz0(-pi/2*(-3^2)) toff1,2,3 cnot0,1 cz1,2 rz0(pi/2*(-3^2)) h2 c
 
 ### Disclaimer
 
-This project is a work in progress and could be buggy.
+This project is a work in progress and could be buggy. This is especially true for the "relative phase" stuff. I didn't test that much and wrote it pretty quickly.
